@@ -25,6 +25,7 @@ from python.db.client import (
     get_jobs_needing_tailor,
     get_jobs_needing_package,
 )
+from python.outreach.auth import run_auth_flow
 
 # Initialize Rich console
 console = Console()
@@ -942,6 +943,14 @@ def cmd_outreach(args):
 
 
 
+def cmd_auth(args):
+    """Run the OAuth flow to get a new Gmail refresh token."""
+    print("╭───────────────────────── Auth ──────────────────────────╮")
+    print("│ Scout Auth: Get Gmail Refresh Token                     │")
+    print("╰─────────────────────────────────────────────────────────╯")
+    run_auth_flow()
+
+
 def main():
     parser = argparse.ArgumentParser(description="Scout: Auto-Applier CLI Orchestrator")
     subparsers = parser.add_subparsers(dest="command", help="Available subcommands")
@@ -1154,6 +1163,11 @@ def main():
         help="Status to set when using --mark (default: sent)",
     )
 
+    # 14. Auth subcommand
+    parser_auth = subparsers.add_parser(
+        "auth", help="Refresh Gmail OAuth token (expires every 7 days)"
+    )
+
     # Parse arguments
     args = parser.parse_args()
 
@@ -1183,6 +1197,8 @@ def main():
         cmd_qa(args)
     elif args.command == "outreach":
         cmd_outreach(args)
+    elif args.command == "auth":
+        cmd_auth(args)
     else:
         parser.print_help()
 

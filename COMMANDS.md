@@ -106,3 +106,8 @@ _Valid statuses:_ `ready`, `applied`, `followed_up`, `responded`, `rejected`, `o
 
 **Command:** `.\scout.bat qa --edit <key>`
 **Description:** Edits the answer or keywords for a specific entry in either the QA bank or STAR bank.
+
+## 9. Authentication
+
+**Command:** `.\scout.bat auth`
+**Description:** Opens a local browser session to authenticate with Google and retrieve a new Gmail refresh token (tokens expire every 7 days when in test mode). Copy the generated token into your `.env` file as `GMAIL_REFRESH_TOKEN`.

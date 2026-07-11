@@ -1,3 +1,4 @@
+import json
 import logging
 import asyncio
 from typing import Optional, Dict, Any, List
@@ -777,23 +778,40 @@ async def process_contact(
     logger.info(f"Processing contact for {job.company} | {email} | {linkedin_url}")
 
     # ── 2. Scrape LinkedIn profile ────────────────────────────────────────────
-    logger.info(f"Scraping LinkedIn profile: {linkedin_url}")
-    profile = await scrape_profile(linkedin_url)
-    if not profile:
-        result["error"] = f"Failed to scrape LinkedIn profile: {linkedin_url}"
-        logger.error(result["error"])
-        return result
+    # Check if we already have profile data cached in the outreach record for
+    # this exact LinkedIn URL — if so, skip the Apify call entirely.
+    _existing_check = get_outreach_by_job_id(job_id)
+    _cached_linkedin = getattr(_existing_check, "contact_linkedin", None)
+    _cached_name = getattr(_existing_check, "contact_name", None)
 
-    # Extract the fields we need from the datadoping profile response
-    contact_name = profile.get("fullname") or profile.get("firstName", "") + " " + profile.get("lastName", "")
-    contact_name = contact_name.strip()
-    headline = profile.get("headline", "")
-    about = profile.get("about", "")
+    if _existing_check and _cached_name and _cached_linkedin == linkedin_url:
+        logger.info(f"Reusing cached LinkedIn profile for {_cached_name} (skipping Apify scrape)")
+        contact_name = _cached_name
+        contact_first_name = contact_name  # Gemini infers given name from full name
+        headline = _existing_check.contact_headline or ""
+        about = _existing_check.contact_about or ""
+        contact_title = _existing_check.contact_title or ""
+        recent_experience = ""  # not persisted; composer handles missing context gracefully
+    else:
+        logger.info(f"Scraping LinkedIn profile: {linkedin_url}")
+        profile = await scrape_profile(linkedin_url)
+        if not profile:
+            result["error"] = f"Failed to scrape LinkedIn profile: {linkedin_url}"
+            logger.error(result["error"])
+            return result
 
-    experience_list = profile.get("experience", [])
-    current_exp = experience_list[0] if experience_list else {}
-    contact_title = current_exp.get("title", "")
-    recent_experience = current_exp.get("description", "")
+        # Extract the fields we need from the datadoping profile response
+        contact_name = profile.get("fullname") or profile.get("firstName", "") + " " + profile.get("lastName", "")
+        contact_name = contact_name.strip()
+        # Use firstName directly from Apify — most reliable for multi-part names
+        contact_first_name = profile.get("firstName") or contact_name
+        headline = profile.get("headline", "")
+        about = profile.get("about", "")
+
+        experience_list = profile.get("experience", [])
+        current_exp = experience_list[0] if experience_list else {}
+        contact_title = current_exp.get("title", "")
+        recent_experience = current_exp.get("description", "")
 
     logger.info(f"Got profile: {contact_name} — {contact_title}")
     result["contact_name"] = contact_name
@@ -801,19 +819,33 @@ async def process_contact(
     # ── 3. Extract JD signals ─────────────────────────────────────────────────
     # Try existing outreach record first (saves an API call if already extracted)
     existing = get_outreach_by_job_id(job_id)
-    team_name = existing.team_name if existing and existing.team_name else None
 
-    extractor = JDExtractor()
-    extracted = await extractor.extract(job.raw_jd, company=job.company)
+    cached_team = existing.team_name if existing and existing.team_name else None
 
-    team_name = team_name or extracted.get("team_name", "Engineering")
-    key_signals = extracted.get("key_signals", [])
-    relevant_project = extracted.get("relevant_project", "Orbit")
+    if cached_team:
+        # team_name already in DB — skip the extractor API call
+        logger.info(f"Reusing cached JD signals for {job.company} (skipping extractor)")
+        team_name = cached_team
+        key_signals = []  # not persisted in DB, safe to omit on reuse
+        extracted = {}    # no extractor run; downstream code reads safely from this
+        # Derive relevant_project from team name heuristic
+        _team_lower = team_name.lower()
+        if any(k in _team_lower for k in ("ai", "ml", "data", "search", "intelligence")):
+            relevant_project = "MindHive"
+        else:
+            relevant_project = "Orbit"
+    else:
+        extractor = JDExtractor()
+        extracted = await extractor.extract(job.raw_jd, company=job.company)
+        team_name = extracted.get("team_name", "Engineering")
+        relevant_project = extracted.get("relevant_project", "Orbit")
+        key_signals = extracted.get("key_signals", [])
 
     # ── 4. Compose email ──────────────────────────────────────────────────────
     composer = EmailComposer()
     email_content = await composer.compose(
         contact_name=contact_name,
+        contact_first_name=contact_first_name,
         contact_title=contact_title,
         headline=headline,
         about=about,
@@ -835,7 +867,11 @@ async def process_contact(
     logger.info(f"Gmail draft saved: {draft_id}")
 
     # ── 6. Persist to DB ──────────────────────────────────────────────────────
-    domain = extracted.get("company_domain") or job.company.lower().replace(" ", "") + ".com"
+    domain = (
+        (existing.company_domain if existing and existing.company_domain else None)
+        or extracted.get("company_domain")
+        or job.company.lower().replace(" ", "") + ".com"
+    )
 
     # Upsert: if a record exists (e.g. from a prior failed run) update it,
     # otherwise create a fresh one.
