@@ -853,7 +853,7 @@ async def autofill_job_by_url(
         logger.error(f"Error executing QuestionHandler: {ex}")
 
 
-async def run_multi_tab_autofill(job_ids: List[str]):
+async def run_multi_tab_autofill(job_ids: List[str], static_pdf_path: Optional[str] = None):
     """
     Launches headful browser and opens each job ID in a separate tab, fills standard fields,
     and pauses for the user to manually review, submit, and confirm in console.
@@ -873,6 +873,17 @@ async def run_multi_tab_autofill(job_ids: List[str]):
         job = get_job(job_id)
         if not job:
             logger.error(f"Job ID {job_id} not found.")
+            continue
+
+        if static_pdf_path:
+            jobs_data.append(
+                {
+                    "job": job,
+                    "pdf_path": static_pdf_path,
+                    "cover_letter": "",
+                    "cover_letter_pdf_path": None,
+                }
+            )
             continue
 
         app = get_application_by_job(job_id)

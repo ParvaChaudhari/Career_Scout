@@ -479,7 +479,7 @@ async def package_pipeline(job_id: str) -> Dict[str, Any]:
         return metrics
 
 
-async def master_pipeline(company_slug: Optional[str] = None) -> Dict[str, Any]:
+async def master_pipeline(company_slug: Optional[str] = None, skip_tailor_package: bool = False) -> Dict[str, Any]:
     """
     Executes the full end-to-end Phase 6 pipeline:
     Scrape -> Score -> Tailor -> Package for jobs scoring >= 3.5.
@@ -517,6 +517,10 @@ async def master_pipeline(company_slug: Optional[str] = None) -> Dict[str, Any]:
     jobs_to_tailor = [row['id'] for row in cursor.fetchall()]
     conn.close()
     
+    if skip_tailor_package:
+        logger.info("Skipping tailor and package phases as requested.")
+        return metrics
+
     # 3 & 4. Tailor and Package
     for job_id in jobs_to_tailor:
         try:

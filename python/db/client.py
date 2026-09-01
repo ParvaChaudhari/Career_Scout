@@ -524,6 +524,24 @@ def get_application_by_job(job_id: str) -> Optional[Application]:
     return None
 
 
+def get_high_scoring_unapplied_job_ids(min_score: float = 3.5) -> list[str]:
+    """Returns job IDs for jobs scoring >= min_score that haven't been applied to or rejected."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+    SELECT j.id
+    FROM jobs j
+    JOIN scores s ON j.id = s.job_id
+    LEFT JOIN applications a ON j.id = a.job_id
+    WHERE s.overall_score >= ?
+      AND (a.status IS NULL OR a.status NOT IN ('applied', 'rejected', 'responded', 'offer', 'followed_up'))
+    ORDER BY s.overall_score DESC
+    """, (min_score,))
+    rows = cursor.fetchall()
+    conn.close()
+    return [row["id"] for row in rows]
+
+
 def get_ready_applications() -> list[dict[str, Any]]:
     """Lists all 'ready' applications with core job details and pdf pathways."""
     conn = get_connection()

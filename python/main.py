@@ -532,25 +532,42 @@ def cmd_scrape(args):
 def cmd_pipeline(args):
     """Executes the full end-to-end pipeline."""
     company = getattr(args, "company", None)
+    use_pdf = getattr(args, "pdf", False)
 
     console.print(
         Panel(
             f"[bold blue]Scout Master Pipeline[/bold blue]\n"
-            f"Target: [cyan]{company or 'All TARGET_COMPANIES'}[/cyan]",
+            f"Target: [cyan]{company or 'All TARGET_COMPANIES'}[/cyan]\n"
+            f"Static PDF Mode: [cyan]{use_pdf}[/cyan]",
             title="[bold]Orchestrator Pipeline[/bold]",
             expand=False,
         )
     )
 
     with console.status("[bold green]Running full end-to-end pipeline...") as status:
-        metrics = asyncio.run(master_pipeline(company_slug=company))
+        metrics = asyncio.run(master_pipeline(company_slug=company, skip_tailor_package=use_pdf))
 
     console.print(f"\n[bold green][PASS] Pipeline Complete![/bold green]")
     console.print(f"Jobs Scraped: [bold]{metrics['scraped']}[/bold]")
     console.print(f"Jobs Scored: [bold]{metrics['scored']}[/bold]")
     console.print(f"Packages Generated: [bold cyan]{metrics['packaged']}[/bold cyan]")
 
-    if metrics["packaged"] > 0:
+    if use_pdf:
+        console.print("\n[bold]Running Auto-Filler with Static PDF...[/bold]")
+        from python.db.client import get_high_scoring_unapplied_job_ids
+        from python.utils.autofill import run_multi_tab_autofill
+        
+        static_pdf = r"c:\Users\PARVA\Desktop\Scout\data\SD_Resume.pdf"
+        job_ids = get_high_scoring_unapplied_job_ids(3.5)
+        if not job_ids:
+            console.print("[bold yellow]No unapplied high-scoring jobs found.[/bold yellow]")
+        else:
+            try:
+                asyncio.run(run_multi_tab_autofill(job_ids, static_pdf_path=static_pdf))
+                console.print("[bold green]Auto-Filler execution complete![/bold green]")
+            except Exception as ex:
+                console.print(f"[bold red]Error running auto-filler:[/bold red] {ex}")
+    elif metrics["packaged"] > 0:
         console.print(
             "\n[bold]Run '.\\scout.bat review' to see your new application packages![/bold]"
         )
@@ -658,9 +675,32 @@ def cmd_status(args):
 
 def cmd_apply(args):
     """Executes the Playwright autofiller."""
-    job_id = args.job
+    from python.db.client import get_high_scoring_unapplied_job_ids
+    from python.utils.autofill import run_multi_tab_autofill
 
-    if job_id:
+    job_id = args.job
+    static_pdf = None
+
+    if args.pdf:
+        static_pdf = r"c:\Users\PARVA\Desktop\Scout\data\SD_Resume.pdf"
+        job_ids = get_high_scoring_unapplied_job_ids(3.5)
+        if not job_ids:
+            console.print(
+                Panel(
+                    "[bold yellow]No unapplied high-scoring jobs found.[/bold yellow]\nRun the pipeline to score some jobs first!"
+                )
+            )
+            return
+        console.print(
+            Panel(
+                f"[bold blue]Scout Auto-Filler: Static PDF Mode[/bold blue]\n"
+                f"Using PDF: {static_pdf}\n"
+                f"High-Scoring Unapplied Jobs: [cyan]{len(job_ids)}[/cyan]",
+                title="[bold]Auto-Filler[/bold]",
+                expand=False,
+            )
+        )
+    elif job_id:
         job_ids = [job_id]
         console.print(
             Panel(
@@ -690,10 +730,8 @@ def cmd_apply(args):
             )
         )
 
-    from python.utils.autofill import run_multi_tab_autofill
-
     try:
-        asyncio.run(run_multi_tab_autofill(job_ids))
+        asyncio.run(run_multi_tab_autofill(job_ids, static_pdf_path=static_pdf))
         console.print("[bold green]Auto-Filler execution complete![/bold green]")
     except Exception as ex:
         console.print(f"[bold red]Error running auto-filler:[/bold red] {ex}")
@@ -1046,6 +1084,11 @@ def main():
         default=None,
         help="Specific company slug to run the pipeline for",
     )
+    parser_pipeline.add_argument(
+        "--pdf",
+        action="store_true",
+        help="Skip tailor and package, and apply using the static SD_Resume.pdf immediately after scoring",
+    )
 
     # 7. Process subcommand
     parser_process = subparsers.add_parser(
@@ -1081,7 +1124,12 @@ def main():
         "--job",
         type=str,
         default=None,
-        help="Specific job ID to autofill (otherwise fills all 'ready' jobs)",
+        help="Specific job ID to autofill (ignores status)",
+    )
+    parser_apply.add_argument(
+        "--pdf",
+        action="store_true",
+        help="Apply to all unapplied jobs (score >= 3.5) using the static SD_Resume.pdf",
     )
 
     # 11. QA subcommand
