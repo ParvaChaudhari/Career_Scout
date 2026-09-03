@@ -1,25 +1,24 @@
+import os
 import json
 import logging
 from pathlib import Path
 from typing import List, Optional
 from pydantic import BaseModel, Field
-# from google import genai
-# from google.genai import types
-from openai import OpenAI, RateLimitError
-import json
+from google import genai
+from google.genai import types
 import tenacity
 
 def is_rate_limit_error(exception):
-    if isinstance(exception, RateLimitError):
+    if hasattr(exception, "code") and exception.code == 429:
         return True
     if hasattr(exception, "status_code") and exception.status_code == 429:
         return True
     err_str = str(exception).lower()
-    if "429" in err_str or "too many requests" in err_str:
+    if "429" in err_str or "resource_exhausted" in err_str or "quota" in err_str or "too many requests" in err_str:
         return True
     return False
 
-from python.config import GEMINI_API_KEY, NIM_API_KEY, LLM_MODEL
+from python.config import GEMINI_API_KEY, LLM_MODEL
 from python.db.models import Job
 
 logger = logging.getLogger(__name__)
@@ -82,22 +81,11 @@ class ResumeTailor:
     """
     
     def __init__(self):
-        # Gemini Code (Commented Out)
-        # self.api_key = GEMINI_API_KEY
-        # if not self.api_key:
-        #     raise ValueError("GEMINI_API_KEY not found in configuration.")
-        # self.client = genai.Client(api_key=self.api_key)
-        # self.model_name = "gemini-2.5-flash"
-
-        # NVIDIA NIM Code
-        self.api_key = NIM_API_KEY
+        self.api_key = GEMINI_API_KEY
         if not self.api_key:
-            raise ValueError("NIM_API_KEY not found in configuration.")
-        self.client = OpenAI(
-            base_url="https://integrate.api.nvidia.com/v1",
-            api_key=self.api_key
-        )
-        self.model_name = LLM_MODEL
+            raise ValueError("GEMINI_API_KEY not found in configuration.")
+        self.client = genai.Client(api_key=self.api_key)
+        self.model_name = os.getenv("LLM_MODEL", "gemini-3.6-flash")
         
         self.base_resume_data = self._load_base_resume()
 
@@ -108,14 +96,17 @@ class ResumeTailor:
         reraise=True
     )
     def _create_completion(self, prompt: str) -> str:
-        response = self.client.chat.completions.create(
-            model=self.model_name,
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
+        config = types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema=TailoredResume,
             temperature=0.3,
-            max_tokens=4096
         )
-        return response.choices[0].message.content
+        response = self.client.models.generate_content(
+            model=self.model_name,
+            contents=prompt,
+            config=config
+        )
+        return response.text
 
     def _load_base_resume(self) -> dict:
         """Loads base resume JSON data as source of truth."""
@@ -173,21 +164,6 @@ to align with the specified job posting while strictly adhering to visual page c
    - Schema: {json.dumps(TailoredResume.model_json_schema(), indent=2)}
 """
 
-        # Gemini Execution (Commented Out)
-        # config = types.GenerateContentConfig(
-        #     response_mime_type="application/json",
-        #     response_schema=TailoredResume,
-        # )
-        # try:
-        #     response = self.client.models.generate_content(
-        #         model=self.model_name,
-        #         contents=prompt,
-        #         config=config
-        #     )
-        #     tailored_data = json.loads(response.text)
-        #     return tailored_data
-
-        # NVIDIA NIM Execution
         try:
             raw_text = self._create_completion(prompt)
             tailored_data = json.loads(raw_text)

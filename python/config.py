@@ -11,7 +11,7 @@ load_dotenv(dotenv_path=dotenv_path)
 # =====================================================================
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 NIM_API_KEY = os.getenv("NIM_API_KEY")
-LLM_MODEL = os.getenv("LLM_MODEL", "meta/llama-3.3-70b-instruct")
+LLM_MODEL = os.getenv("LLM_MODEL", "gemini-3.6-flash")
 
 APIFY_API_TOKEN = os.getenv("APIFY_API_TOKEN")
 SCRAPPER = os.getenv("SCRAPPER")

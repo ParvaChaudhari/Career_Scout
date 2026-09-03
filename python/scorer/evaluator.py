@@ -3,24 +3,23 @@ import logging
 from typing import Optional, List
 from pathlib import Path
 from pydantic import BaseModel, Field
-# from google import genai
-# from google.genai import types
-from openai import OpenAI, RateLimitError
+from google import genai
+from google.genai import types
 import json
 import tenacity
 
 def is_rate_limit_error(exception):
-    if isinstance(exception, RateLimitError):
+    if hasattr(exception, "code") and exception.code == 429:
         return True
     if hasattr(exception, "status_code") and exception.status_code == 429:
         return True
     err_str = str(exception).lower()
-    if "429" in err_str or "too many requests" in err_str:
+    if "429" in err_str or "resource_exhausted" in err_str or "quota" in err_str or "too many requests" in err_str:
         return True
     return False
 
 from python.db.models import Job, Score
-from python.config import GEMINI_API_KEY, NIM_API_KEY, LLM_MODEL
+from python.config import GEMINI_API_KEY, LLM_MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -65,27 +64,16 @@ class LLMScoreOutput(BaseModel):
 
 class JobEvaluator:
     """
-    Evaluator that leverages Gemini 3 Flash to perform a deep rubric-based structured scoring
+    Evaluator that leverages Gemini 3.6 Flash to perform a deep rubric-based structured scoring
     on job descriptions compared against Parva's resume.
     """
     
     def __init__(self):
-        # Gemini Code (Commented Out)
-        # self.api_key = GEMINI_API_KEY
-        # if not self.api_key:
-        #     raise ValueError("GEMINI_API_KEY not found in environment configurations.")
-        # self.client = genai.Client(api_key=self.api_key)
-        # self.model_name = "gemini-3-flash-preview"
-
-        # NVIDIA NIM Code
-        self.api_key = NIM_API_KEY
+        self.api_key = GEMINI_API_KEY
         if not self.api_key:
-            raise ValueError("NIM_API_KEY not found in environment configurations.")
-        self.client = OpenAI(
-            base_url="https://integrate.api.nvidia.com/v1",
-            api_key=self.api_key
-        )
-        self.model_name = LLM_MODEL
+            raise ValueError("GEMINI_API_KEY not found in environment configurations.")
+        self.client = genai.Client(api_key=self.api_key)
+        self.model_name = os.getenv("LLM_MODEL", "gemini-3.6-flash")
         
         # Load resume context once during initialization
         self.resume_text = self._load_resume()
@@ -111,14 +99,18 @@ class JobEvaluator:
         reraise=True
     )
     def _create_completion(self, prompt: str) -> str:
-        response = self.client.chat.completions.create(
-            model=self.model_name,
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
+        config = types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema=LLMScoreOutput,
+            thinking_config=types.ThinkingConfig(thinking_level="minimal"),
             temperature=0.2,
-            max_tokens=1024
         )
-        return response.choices[0].message.content
+        response = self.client.models.generate_content(
+            model=self.model_name,
+            contents=prompt,
+            config=config
+        )
+        return response.text
 
     def _load_resume(self) -> str:
         """Loads Parva's markdown resume as a source of truth for LLM evaluation."""
@@ -183,24 +175,6 @@ Evaluate the following Job Posting against Parva's Resume.
 {json.dumps(LLMScoreOutput.model_json_schema(), indent=2)}
 """
 
-        # Gemini Execution (Commented Out)
-        # config = types.GenerateContentConfig(
-        #     response_mime_type="application/json",
-        #     response_schema=LLMScoreOutput,
-        #     thinking_config=types.ThinkingConfig(
-        #         thinking_level="minimal" 
-        #     )
-        # )
-        # try:
-        #     response = self.client.models.generate_content(
-        #         model=self.model_name,
-        #         contents=prompt,
-        #         config=config
-        #     )
-        #     raw_text = response.text
-        #     output = LLMScoreOutput.model_validate_json(raw_text)
-
-        # NVIDIA NIM Execution
         try:
             raw_text = self._create_completion(prompt)
             output = LLMScoreOutput.model_validate_json(raw_text)
