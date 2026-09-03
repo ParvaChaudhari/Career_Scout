@@ -47,12 +47,14 @@ def cmd_score(args):
     within_days = args.within_days
     dry_run = args.dry_run
     company = getattr(args, "company", None)
+    unique = getattr(args, "unique", None)
 
     console.print(
         Panel(
             f"[bold blue]Scout Pipeline: Scoring Stage[/bold blue]\n"
             f"Company: [cyan]{company or 'All Companies'}[/cyan]\n"
             f"Job ID: [cyan]{job_id or 'All Unscored'}[/cyan]\n"
+            f"Unique per company: [cyan]{unique or 'Disabled'}[/cyan]\n"
             f"Within Days: [cyan]{within_days or 'All'}[/cyan]\n"
             f"Dry Run: [cyan]{dry_run}[/cyan]",
             title="[bold]Scoring[/bold]",
@@ -64,7 +66,13 @@ def cmd_score(args):
         "[bold green]Evaluating jobs against candidate profile..."
     ) as status:
         metrics = asyncio.run(
-            score_pipeline(job_id=job_id, within_days=within_days, company_slug=company, dry_run=dry_run)
+            score_pipeline(
+                job_id=job_id,
+                within_days=within_days,
+                company_slug=company,
+                dry_run=dry_run,
+                unique_keyword=unique,
+            )
         )
 
     console.print("\n[bold green]Scoring Stage Complete![/bold green]")
@@ -1042,6 +1050,12 @@ def main():
         type=int,
         default=None,
         help="Only score jobs posted within the last N days",
+    )
+    parser_score.add_argument(
+        "--unique",
+        type=str,
+        default=None,
+        help="Only score 1 job per company whose title contains this keyword (e.g. --unique software)",
     )
     parser_score.add_argument(
         "--dry-run",

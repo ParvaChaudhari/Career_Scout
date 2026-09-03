@@ -165,94 +165,10 @@ TARGET_COMPANIES = [
         "source": "workday",
     },
     {
-        "name": "Okta",
-        "slug": "okta",
-        "board": "External_Career_Site",
-        "wd": "wd1",
-        "source": "workday",
-    },
-    {
-        "name": "Cisco/Splunk",
-        "slug": "cisco",
-        "board": "External_Career_Site",
-        "wd": "wd1",
-        "source": "workday",
-    },
-    {
-        "name": "Netflix",
-        "slug": "netflix",
-        "board": "Netflix_External",
-        "wd": "wd1",
-        "source": "workday",
-    },
-    {
-        "name": "LinkedIn",
-        "slug": "linkedin",
-        "board": "External_Career_Site",
-        "wd": "wd1",
-        "source": "workday",
-    },
-    {
-        "name": "Zalando",
-        "slug": "zalando",
-        "board": "External_Career_Site",
-        "wd": "wd3",
-        "source": "workday",
-    },
-    {
-        "name": "Zillow",
-        "slug": "zillow",
-        "board": "Zillow_External",
-        "wd": "wd5",
-        "source": "workday",
-    },
-    {
-        "name": "Indeed",
-        "slug": "indeed",
-        "board": "Indeed_External",
-        "wd": "wd5",
-        "source": "workday",
-    },
-    {
-        "name": "WGU",
-        "slug": "wgu",
-        "board": "External",
-        "wd": "wd5",
-        "source": "workday",
-    },
-    {
-        "name": "Microchip",
-        "slug": "microchiphr",
-        "board": "External",
-        "wd": "wd5",
-        "source": "workday",
-    },
-    {
-        "name": "OCLC",
-        "slug": "oclc",
-        "board": "OCLC_Careers",
-        "wd": "wd1",
-        "source": "workday",
-    },
-    {
         "name": "Visa",
         "slug": "visa",
         "board": "Visa",
         "wd": "wd5",
-        "source": "workday",
-    },
-    {
-        "name": "Autodesk",
-        "slug": "autodesk",
-        "board": "Ext",
-        "wd": "wd1",
-        "source": "workday",
-    },
-    {
-        "name": "Univision",
-        "slug": "univision",
-        "board": "External",
-        "wd": "wd1",
         "source": "workday",
     },
     # ── SmartRecruiters ───────────────────────────────────────────────────
@@ -261,8 +177,6 @@ TARGET_COMPANIES = [
     # NOTE: Twitter/X — internal proprietary ATS, no public API; removed
     # ── Direct (Playwright) ───────────────────────────────────────────────
     {"name": "Supabase", "slug": "supabase", "source": "direct"},
-    {"name": "Stripe", "slug": "stripe", "source": "direct"},
-    {"name": "Rippling", "slug": "rippling", "source": "direct"},
 ]
 
 # =====================================================================
@@ -273,31 +187,20 @@ KEYWORD_FILTERS = [
     "python",
     "fastapi",
     "backend",
-    "django",
-    "flask",
     "platform",
-    "infrastructure",
+    "nextJS",
     "software engineer",
-    "database",
 ]
 
 # Auto-reject patterns (roles that we immediately ignore)
 REJECT_TITLE_PATTERNS = [
-    "frontend",
-    "react",
-    "vue",
-    "angular",
-    "ui/ux",
-    "designer",
-    "qa",
-    "test",
-    "quality assurance",
-    "devops",
+    # Frontend / QA per GEMINI.md deal-breakers
+    "frontend", "react", "vue", "angular", "ui/ux", "designer", "design", "qa", "quality assurance",
+    # Seniority & Leadership
+    "lead", "principal", "manager", "management", "director", "vp", "head of", "architect", "fellow", "distinguished",
+    # Non-SWE Engineering
+    "electrical", "hardware", "electronics", "pcba", "mechanical", "thermal", "optical", "silicon", "asic", "fpga", "firmware", "embedded",
+    # Non-Tech
+    "recruiter", "talent", "human resources", "sales", "account executive", "marketing", "product manager", "legal", "counsel", "compliance",
     "security clearance",
-    "lead",
-    "principal",
-    "manager",
-    "director",
-    "vp",
-    "staff",
 ]

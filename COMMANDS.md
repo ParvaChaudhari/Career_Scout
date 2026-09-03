@@ -38,6 +38,9 @@ This document contains all the commands you can run using the `scout.bat` CLI.
 **Command:** `.\scout.bat score --dry-run`
 **Description:** Prints out which jobs _would_ be scored without actually calling Gemini, saving your API quota.
 
+**Command:** `.\scout.bat score --unique <keyword>`
+**Description:** Only scores 1 job per company whose title contains `<keyword>` (e.g. `.\scout.bat score --unique software`). Companies without matching positions are skipped. Also supports `--dry-run` (e.g. `.\scout.bat score --unique software --dry-run`).
+
 ## 4. Tailoring & Packaging (Manual Overrides)
 
 **Command:** `.\scout.bat tailor --job <id>`
