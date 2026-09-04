@@ -96,6 +96,15 @@ _Valid statuses:_ `ready`, `applied`, `followed_up`, `responded`, `rejected`, `o
 **Command:** `.\scout.bat apply`
 **Description:** Launches a headful browser session and opens every job package marked as `ready` in its own browser tab. Autofills your contact details, uploads your tailored PDF resume, and pastes your cover letter, then pauses for your final submission.
 
+**Command:** `.\scout.bat apply --pdf`
+**Description:** Applies to all unapplied high-scoring jobs (score >= 3.5) using the static `data/SD_Resume.pdf`, bypassing tailoring/packaging.
+
+**Command:** `.\scout.bat apply --pdf --unique [keyword]`
+**Description:** Applies to exactly 1 job per company among unapplied high-scoring postings (optionally filtering by title keyword, e.g. `.\scout.bat apply --pdf --unique` or `.\scout.bat apply --pdf --unique software`). On subsequent runs, it selects the next unapplied job from each company.
+
+**Command:** `.\scout.bat apply --pdf --unique --dry-run`
+**Description:** Lists all matching jobs and companies that would be autofilled without launching the browser.
+
 **Command:** `.\scout.bat apply --job <id>`
 **Description:** Autofills the application form for a specific job ID, regardless of its status.
 

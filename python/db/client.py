@@ -485,6 +485,18 @@ def mark_applied(
     )
 
     success = cursor.rowcount > 0
+    if not success:
+        app_id = str(uuid.uuid4())
+        applied_at_val = now_str if status == "applied" else None
+        cursor.execute(
+            """
+            INSERT INTO applications (id, job_id, resume_version_id, status, applied_at, notes, updated_at)
+            VALUES (?, ?, NULL, ?, ?, ?, ?)
+            """,
+            (app_id, str(job_id), status, applied_at_val, notes, now_str),
+        )
+        success = cursor.rowcount > 0
+
     conn.commit()
     conn.close()
     return success
@@ -524,12 +536,12 @@ def get_application_by_job(job_id: str) -> Optional[Application]:
     return None
 
 
-def get_high_scoring_unapplied_job_ids(min_score: float = 3.5) -> list[str]:
-    """Returns job IDs for jobs scoring >= min_score that haven't been applied to or rejected."""
+def get_high_scoring_unapplied_jobs(min_score: float = 3.5) -> list[dict[str, Any]]:
+    """Returns job details for jobs scoring >= min_score that haven't been applied to or rejected."""
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-    SELECT j.id
+    SELECT j.id, j.company, j.title, j.url, s.overall_score
     FROM jobs j
     JOIN scores s ON j.id = s.job_id
     LEFT JOIN applications a ON j.id = a.job_id
@@ -539,7 +551,13 @@ def get_high_scoring_unapplied_job_ids(min_score: float = 3.5) -> list[str]:
     """, (min_score,))
     rows = cursor.fetchall()
     conn.close()
-    return [row["id"] for row in rows]
+    return [dict(row) for row in rows]
+
+
+def get_high_scoring_unapplied_job_ids(min_score: float = 3.5) -> list[str]:
+    """Returns job IDs for jobs scoring >= min_score that haven't been applied to or rejected."""
+    jobs = get_high_scoring_unapplied_jobs(min_score=min_score)
+    return [j["id"] for j in jobs]
 
 
 def get_ready_applications() -> list[dict[str, Any]]:

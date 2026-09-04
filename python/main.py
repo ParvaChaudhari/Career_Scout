@@ -562,11 +562,24 @@ def cmd_pipeline(args):
 
     if use_pdf:
         console.print("\n[bold]Running Auto-Filler with Static PDF...[/bold]")
-        from python.db.client import get_high_scoring_unapplied_job_ids
+        from python.db.client import get_high_scoring_unapplied_jobs
         from python.utils.autofill import run_multi_tab_autofill
         
         static_pdf = r"c:\Users\PARVA\Desktop\Scout\data\SD_Resume.pdf"
-        job_ids = get_high_scoring_unapplied_job_ids(3.5)
+        unapplied_jobs = get_high_scoring_unapplied_jobs(3.5)
+        unique = getattr(args, "unique", None)
+        if unique is not None:
+            kw = unique.strip().lower()
+            seen_cos = set()
+            filtered = []
+            for j in unapplied_jobs:
+                c_key = j["company"].strip().lower()
+                if (not kw or kw in j["title"].lower()) and c_key not in seen_cos:
+                    seen_cos.add(c_key)
+                    filtered.append(j)
+            unapplied_jobs = filtered
+
+        job_ids = [j["id"] for j in unapplied_jobs]
         if not job_ids:
             console.print("[bold yellow]No unapplied high-scoring jobs found.[/bold yellow]")
         else:
@@ -683,31 +696,65 @@ def cmd_status(args):
 
 def cmd_apply(args):
     """Executes the Playwright autofiller."""
-    from python.db.client import get_high_scoring_unapplied_job_ids
+    from python.db.client import get_high_scoring_unapplied_jobs, get_ready_applications
     from python.utils.autofill import run_multi_tab_autofill
 
     job_id = args.job
     static_pdf = None
+    unique = getattr(args, "unique", None)
+    dry_run = getattr(args, "dry_run", False)
 
     if args.pdf:
         static_pdf = r"c:\Users\PARVA\Desktop\Scout\data\SD_Resume.pdf"
-        job_ids = get_high_scoring_unapplied_job_ids(3.5)
-        if not job_ids:
+        unapplied_jobs = get_high_scoring_unapplied_jobs(3.5)
+        if not unapplied_jobs:
             console.print(
                 Panel(
                     "[bold yellow]No unapplied high-scoring jobs found.[/bold yellow]\nRun the pipeline to score some jobs first!"
                 )
             )
             return
+
+        if unique is not None:
+            kw = unique.strip().lower()
+            seen_companies = set()
+            filtered_jobs = []
+            for j in unapplied_jobs:
+                c_key = j["company"].strip().lower()
+                if (not kw or kw in j["title"].lower()) and c_key not in seen_companies:
+                    seen_companies.add(c_key)
+                    filtered_jobs.append(j)
+            unapplied_jobs = filtered_jobs
+
+        job_ids = [j["id"] for j in unapplied_jobs]
+        if not job_ids:
+            console.print(
+                Panel(
+                    f"[bold yellow]No unapplied high-scoring jobs found matching --unique '{unique}'.[/bold yellow]"
+                )
+            )
+            return
+
+        unique_label = f"1 job per company (filter: '{unique}')" if unique else ("1 job per company" if unique is not None else "Disabled")
         console.print(
             Panel(
                 f"[bold blue]Scout Auto-Filler: Static PDF Mode[/bold blue]\n"
                 f"Using PDF: {static_pdf}\n"
-                f"High-Scoring Unapplied Jobs: [cyan]{len(job_ids)}[/cyan]",
+                f"Unique per company: [cyan]{unique_label}[/cyan]\n"
+                f"High-Scoring Unapplied Jobs: [cyan]{len(job_ids)}[/cyan]\n"
+                f"Dry Run: [cyan]{dry_run}[/cyan]",
                 title="[bold]Auto-Filler[/bold]",
                 expand=False,
             )
         )
+
+        if dry_run:
+            console.print("\n[bold cyan]Jobs selected for application (Dry Run):[/bold cyan]")
+            for idx, j in enumerate(unapplied_jobs, start=1):
+                score_str = f"{j['overall_score']:.1f}" if j.get('overall_score') else "N/A"
+                console.print(f"  {idx}. [bold]{j['company']}[/bold] | {j['title']} (Score: {score_str}, ID: {j['id']})")
+            return
+
     elif job_id:
         job_ids = [job_id]
         console.print(
@@ -728,15 +775,45 @@ def cmd_apply(args):
                 )
             )
             return
+
+        if unique is not None:
+            kw = unique.strip().lower()
+            seen_companies = set()
+            filtered_apps = []
+            for app in apps:
+                c_key = app["company"].strip().lower()
+                if (not kw or kw in app["title"].lower()) and c_key not in seen_companies:
+                    seen_companies.add(c_key)
+                    filtered_apps.append(app)
+            apps = filtered_apps
+
         job_ids = [app["job_id"] for app in apps]
+        if not job_ids:
+            console.print(
+                Panel(
+                    f"[bold yellow]No ready applications found matching --unique '{unique}'.[/bold yellow]"
+                )
+            )
+            return
+
+        unique_label = f"1 job per company (filter: '{unique}')" if unique else ("1 job per company" if unique is not None else "Disabled")
         console.print(
             Panel(
                 f"[bold blue]Scout Auto-Filler: Multi-Tab[/bold blue]\n"
-                f"Ready Applications to Fill: [cyan]{len(job_ids)}[/cyan]",
+                f"Unique per company: [cyan]{unique_label}[/cyan]\n"
+                f"Ready Applications to Fill: [cyan]{len(job_ids)}[/cyan]\n"
+                f"Dry Run: [cyan]{dry_run}[/cyan]",
                 title="[bold]Auto-Filler[/bold]",
                 expand=False,
             )
         )
+
+        if dry_run:
+            console.print("\n[bold cyan]Applications selected for autofill (Dry Run):[/bold cyan]")
+            for idx, app in enumerate(apps, start=1):
+                score_str = f"{app['overall_score']:.1f}" if app.get('overall_score') else "N/A"
+                console.print(f"  {idx}. [bold]{app['company']}[/bold] | {app['title']} (Score: {score_str}, Job ID: {app['job_id']})")
+            return
 
     try:
         asyncio.run(run_multi_tab_autofill(job_ids, static_pdf_path=static_pdf))
@@ -1053,9 +1130,10 @@ def main():
     )
     parser_score.add_argument(
         "--unique",
-        type=str,
+        nargs="?",
+        const="",
         default=None,
-        help="Only score 1 job per company whose title contains this keyword (e.g. --unique software)",
+        help="Only score 1 job per company (optionally filter by title keyword, e.g. --unique or --unique software)",
     )
     parser_score.add_argument(
         "--dry-run",
@@ -1103,6 +1181,13 @@ def main():
         action="store_true",
         help="Skip tailor and package, and apply using the static SD_Resume.pdf immediately after scoring",
     )
+    parser_pipeline.add_argument(
+        "--unique",
+        nargs="?",
+        const="",
+        default=None,
+        help="Only score/apply 1 job per company (optionally filter by title keyword, e.g. --unique or --unique software)",
+    )
 
     # 7. Process subcommand
     parser_process = subparsers.add_parser(
@@ -1144,6 +1229,18 @@ def main():
         "--pdf",
         action="store_true",
         help="Apply to all unapplied jobs (score >= 3.5) using the static SD_Resume.pdf",
+    )
+    parser_apply.add_argument(
+        "--unique",
+        nargs="?",
+        const="",
+        default=None,
+        help="Only apply to 1 job per company (optionally filter by title keyword, e.g. --unique or --unique software)",
+    )
+    parser_apply.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print matching jobs that would be autofilled without launching the browser",
     )
 
     # 11. QA subcommand

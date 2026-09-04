@@ -269,14 +269,14 @@ async def score_pipeline(
     else:
         target_jobs = get_unscored_jobs(within_days=within_days, company_slug=company_slug)
         
-    # If unique_keyword is passed, select only 1 job per company whose title contains the keyword
-    if unique_keyword:
+    # If unique_keyword is passed, select only 1 job per company (optionally matching title keyword)
+    if unique_keyword is not None:
         kw = unique_keyword.strip().lower()
         seen_companies = set()
         filtered_by_unique = []
         for j in target_jobs:
             c_key = j.company.strip().lower()
-            if kw in j.title.lower() and c_key not in seen_companies:
+            if (not kw or kw in j.title.lower()) and c_key not in seen_companies:
                 seen_companies.add(c_key)
                 filtered_by_unique.append(j)
         target_jobs = filtered_by_unique
