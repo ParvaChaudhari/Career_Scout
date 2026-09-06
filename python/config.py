@@ -98,6 +98,8 @@ TARGET_COMPANIES = [
     {"name": "Carta", "slug": "carta", "source": "greenhouse"},
     {"name": "Remote", "slug": "remote", "source": "greenhouse"},
     {"name": "Lattice", "slug": "lattice", "source": "greenhouse"},
+    {"name": "Precisely", "slug": "preciselyusjobs", "source": "greenhouse"},
+    {"name": "Ascend", "slug": "ascend21", "source": "greenhouse"},
     # NOTE: Tome shut down April 2025 — removed
     # NOTE: Coda acquired by Grammarly/Superhuman Dec 2024 — removed
     # NOTE: Rippling uses proprietary ATS — no public API; removed
@@ -141,6 +143,11 @@ TARGET_COMPANIES = [
     {"name": "Scribe", "slug": "scribe", "source": "ashby"},
     {"name": "Render", "slug": "render", "source": "ashby"},
     {"name": "Notion", "slug": "notion", "source": "ashby"},
+    {"name": "AiPrise", "slug": "aiprise", "source": "ashby"},
+    {"name": "Plaid", "slug": "plaid", "source": "ashby"},
+    {"name": "Arch", "slug": "arch.co", "source": "ashby"},
+    {"name": "Doppel", "slug": "doppel", "source": "ashby"},
+    {"name": "Sierra", "slug": "sierra", "source": "ashby"},
     # ── Workday ───────────────────────────────────────────────────────────
     # Format: tenant.wd{N}.myworkdayjobs.com  →  board
     {
@@ -173,6 +180,7 @@ TARGET_COMPANIES = [
     },
     # ── SmartRecruiters ───────────────────────────────────────────────────
     {"name": "Delivery Hero", "slug": "DeliveryHero", "source": "smartrecruiters"},
+    {"name": "Western Digital", "slug": "WesternDigital", "source": "smartrecruiters"},
     # NOTE: Booking.com — proprietary Phenom People ATS, no public API; removed
     # NOTE: Twitter/X — internal proprietary ATS, no public API; removed
     # ── Direct (Playwright) ───────────────────────────────────────────────

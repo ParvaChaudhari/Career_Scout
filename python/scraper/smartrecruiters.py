@@ -69,7 +69,7 @@ class SmartRecruitersScraper(BaseScraper):
                     completed_raw_jobs = await asyncio.gather(*fetch_tasks)
 
                     for raw in completed_raw_jobs:
-                        job_model = self.normalize(raw, company_name)
+                        job_model = self.normalize(raw, company_name, target)
                         all_jobs.append(job_model)
                         
                     if len(jobs_raw) < limit:
@@ -82,12 +82,13 @@ class SmartRecruitersScraper(BaseScraper):
             
         return all_jobs
 
-    def normalize(self, raw: Dict[str, Any], company: str) -> Job:
+    def normalize(self, raw: Dict[str, Any], company: str, target: str = "") -> Job:
         location_obj = raw.get("location", {})
         location_str = location_obj.get("city", "")
         if location_obj.get("region"):
             location_str += f", {location_obj.get('region')}"
             
+        web_url = f"https://jobs.smartrecruiters.com/{target}/{raw['id']}" if target else raw.get("ref", "")
         return Job(
             source=self.source,
             external_id=raw["id"],
@@ -95,6 +96,6 @@ class SmartRecruitersScraper(BaseScraper):
             title=raw.get("name", ""),
             location=location_str.strip(", "),
             remote=location_obj.get("remote", False),
-            url=raw.get("ref", ""),
+            url=web_url,
             raw_jd=raw.get("jobDescription", "")
         )

@@ -42,7 +42,12 @@ class AshbyScraper(BaseScraper):
                 data = response.json()
                 raw_jobs = data.get("jobs", [])
                 
-                company_name = target.replace("-", " ").title()
+                from python.config import TARGET_COMPANIES
+                company_info = next(
+                    (c for c in TARGET_COMPANIES if c.get("slug") == target and c.get("source") == "ashby"),
+                    None
+                )
+                company_name = company_info.get("name") if company_info else target.replace("-", " ").title()
                 
                 normalized_jobs = []
                 for raw_job in raw_jobs:

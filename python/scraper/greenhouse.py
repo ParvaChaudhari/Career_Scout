@@ -43,8 +43,13 @@ class GreenhouseScraper(BaseScraper):
                 raw_jobs = data.get("jobs", [])
                 
                 # Retrieve company display name if available, fallback to target slug capitalized
+                from python.config import TARGET_COMPANIES
+                company_info = next(
+                    (c for c in TARGET_COMPANIES if c.get("slug") == target and c.get("source") == "greenhouse"),
+                    None
+                )
                 meta = data.get("meta", {})
-                company_name = meta.get("name", target.replace("-", " ").title())
+                company_name = (company_info.get("name") if company_info else None) or meta.get("name") or target.replace("-", " ").title()
                 
                 normalized_jobs = []
                 for raw_job in raw_jobs:
